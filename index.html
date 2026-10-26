@@ -220,7 +220,7 @@ function ineligibleReason(form){
  }
  if(form==='ip'){
    if(['2','3to50','over50'].includes(founders))return 'ИП регистрируется одним физическим лицом, а не группой учредителей.';
-   if(types.length&&!types.includes('individuals')&&!types.includes('foreign'))return 'ИП может быть только физическим лицом, не юридическим.';
+   if(types.length&&!types.includes('individuals'))return 'ИП регистрируется физическим лицом. Отметьте категорию «Физические лица», даже если предприниматель — иностранный гражданин.';
    if(stage==='transform')return 'ИП не возникает в результате преобразования юридического лица.';
  }
  if(form==='ooo'&&founders==='over50')return 'В ООО не может быть более 50 участников (ст. 7 закона № 14-ФЗ).';
@@ -418,6 +418,7 @@ function isValidField(q){
  if(q.type==='multi'&&Array.isArray(value)&&q.options?.some(o=>o.exclusive&&value.includes(o.value)&&value.length>1))return false;
  if(q.id==='npo_income'&&['ano','fund','public_mov'].includes(ACTIVE_FORM)&&Array.isArray(value)&&value.includes('fees'))return false;
  if(q.id==='assoc_members'&&(!Array.isArray(value)||!value.some(v=>['people','legal'].includes(v))))return false;
+ if(['founder_types','charter_founder_types'].includes(q.id)&&Array.isArray(value)&&!['individuals','companies','npo'].some(x=>value.includes(x)))return false;
  if(q.id==='assoc_top'&&value==='delegates'&&get('assoc_future_count')!=='over100')return false;
  if(q.id==='public_structure'&&value==='no'&&['allrussia','interregional'].includes(get('public_territory')))return false;
  if(q.id==='founder_types'&&COMMON.founders==='1'&&Array.isArray(value)&&['individuals','companies','npo'].filter(x=>value.includes(x)).length>1)return false;
@@ -426,6 +427,8 @@ function isValidField(q){
    const name=String(value).trim();
    const patterns={ooo:/общество\s+с\s+ограниченной\s+ответственностью/i,association:/(ассоциаци|союз)/i,ano:/автономн.{0,30}некоммерческ.{0,30}организаци/i,fund:/фонд/i,public_org:/общественн.{0,22}организаци/i,public_mov:/общественн.{0,22}движени/i,coop:/кооператив/i};
    if(patterns[ACTIVE_FORM]&&!patterns[ACTIVE_FORM].test(name))return false;
+   const bare=/^(?:общество\s+с\s+ограниченной\s+ответственностью|автономная\s+некоммерческая\s+организация|общественно\s+полезный\s+фонд|фонд|ассоциация|союз|общественная\s+организация|общественное\s+движение|потребительский\s+кооператив)\s*$/i;
+   if(bare.test(name))return false;
  }
  if(q.id==='form_select'&&(!choices().length||choices().some(f=>ineligibleReason(f))))return false;
  if(q.id==='charter_public_three'&&value!=='yes')return false;
@@ -453,7 +456,7 @@ function fieldMessage(q){
  if(q.id==='charter_founder_types')return 'Коммерческие компании не могут быть учредителями общественного объединения, даже если среди учредителей есть три гражданина.';
  if(q.id==='assoc_top')return 'Съезд или конференция вместо общего собрания ассоциации допускаются при численности более 100 членов.';
  if(q.id==='public_structure')return 'При выбранном территориальном статусе обязательны структурные подразделения.';
- if(['founder_types','charter_founder_types'].includes(q.id))return 'Для единственного учредителя укажите одну основную категорию лиц; иностранный статус можно отметить дополнительно.';
+ if(['founder_types','charter_founder_types'].includes(q.id))return 'Укажите хотя бы одну основную категорию лиц. Для единственного учредителя она должна быть одна, а иностранный статус отмечается дополнительно.';
  if(q.id==='charter_founders')return 'Проверьте минимальное или максимальное число участников выбранной формы.';
  return 'Уточните ответ: выбранный вариант не позволяет завершить этот шаг.';
 }
