@@ -355,7 +355,11 @@ function questionMarkup(q){
   const count=q.id==='form_select'?`<p class="select-count">Выбрано форм: ${choices().length}. Для каждой появится свой раздел устава.</p>`:'';
   control=pre+`<div class="answers ${q.id==='form_select'?'forms-list':''}">`+(q.options||[]).map(o=>{
    const checked=multi?Array.isArray(v)&&v.includes(o.value):v===o.value;
-   const reason=q.id==='form_select'?ineligibleReason(o.value):(q.id==='npo_income'&&o.value==='fees'&&['ano','fund','public_mov'].includes(ACTIVE_FORM)?'У этой организации нет членства; членские взносы невозможны. Выберите имущественные взносы или пожертвования.':(q.id==='llc_certify_method'&&o.value==='part_sign'&&get('founders_form')==='1'?'При единственном участнике подписывать решение может только он сам.':''));
+   const reason=q.id==='form_select'?ineligibleReason(o.value):
+     q.id==='npo_income'&&o.value==='fees'&&['ano','fund','public_mov'].includes(ACTIVE_FORM)?'У этой организации нет членства; членские взносы невозможны. Выберите взносы учредителей или добровольные поступления.':
+     q.id==='llc_certify_method'&&o.value==='part_sign'&&get('founders_form')==='1'?'Единственный участник оформляет решение без общего собрания.':
+     q.id==='assoc_top'&&o.value==='delegates'&&get('assoc_future_count')!=='over100'?'Съезд или конференция в ассоциации допускаются при численности более 100 членов (ст. 65.3 ГК РФ).':
+     q.id==='public_structure'&&o.value==='no'&&['allrussia','interregional'].includes(get('public_territory'))?'Для этого статуса требуются территориальные подразделения по ст. 14 закона № 82-ФЗ.':'';
    const disabled=!!reason&&!checked;
    const recommendedOption=q.id==='form_select'&&o.value===recommended;
    const help=reason?`<span class="option-sub">Недоступно: ${esc(reason)}</span>`:(o.note?`<span class="option-sub">${esc(o.note)}</span>`:'');
@@ -366,7 +370,9 @@ function questionMarkup(q){
  }else{
   const numeric=!!q.number;
   const attrs=numeric?` type="number" inputmode="decimal" ${q.min!==undefined?`min="${q.min}"`:''} ${q.max!==undefined?`max="${q.max}"`:''} step="${q.step??'any'}"`:' type="text" maxlength="2000"';
-  control=`<input class="input" id="field-${esc(q.id)}" aria-labelledby="legend-${esc(q.id)}"${attrs} value="${esc(v??'')}" placeholder="${esc(q.placeholder||(numeric?'Укажите число':'Укажите ответ'))}" ${q.help?`aria-describedby="help-${esc(q.id)}"`:''}>`;
+  const examples={ooo:'Общество с ограниченной ответственностью «Пример»',association:'Ассоциация «Профессиональное сообщество»',ano:'Автономная некоммерческая организация «Пример»',fund:'Общественно полезный фонд «Помощь»',public_org:'Региональная общественная организация «Пример»',public_mov:'Региональное общественное движение «Пример»',coop:'Потребительский кооператив «Пример»'};
+  const placeholder=q.id==='full_name'?examples[ACTIVE_FORM]:(q.placeholder||(numeric?'Укажите число':'Укажите ответ'));
+  control=`<input class="input" id="field-${esc(q.id)}" aria-labelledby="legend-${esc(q.id)}"${attrs} value="${esc(v??'')}" placeholder="${esc(placeholder)}" ${q.help?`aria-describedby="help-${esc(q.id)}"`:''}>`;
  }
  let note='';
  if(q.explain){const refs=(q.source||[]).filter(k=>REF[k]).map(k=>`<a href="${esc(REF[k][1])}" target="_blank" rel="noopener noreferrer">${esc(REF[k][0])}</a>`).join('');
@@ -412,6 +418,10 @@ function isValidField(q){
  if(q.type==='multi'&&Array.isArray(value)&&q.options?.some(o=>o.exclusive&&value.includes(o.value)&&value.length>1))return false;
  if(q.id==='npo_income'&&['ano','fund','public_mov'].includes(ACTIVE_FORM)&&Array.isArray(value)&&value.includes('fees'))return false;
  if(q.id==='assoc_members'&&(!Array.isArray(value)||!value.some(v=>['people','legal'].includes(v))))return false;
+ if(q.id==='assoc_top'&&value==='delegates'&&get('assoc_future_count')!=='over100')return false;
+ if(q.id==='public_structure'&&value==='no'&&['allrussia','interregional'].includes(get('public_territory')))return false;
+ if(q.id==='founder_types'&&COMMON.founders==='1'&&Array.isArray(value)&&['individuals','companies','npo'].filter(x=>value.includes(x)).length>1)return false;
+ if(q.id==='charter_founder_types'&&get('founders_form')==='1'&&Array.isArray(value)&&['individuals','companies','npo'].filter(x=>value.includes(x)).length>1)return false;
  if(q.id==='full_name'&&value){
    const name=String(value).trim();
    const patterns={ooo:/общество\s+с\s+ограниченной\s+ответственностью/i,association:/(ассоциаци|союз)/i,ano:/автономн.{0,30}некоммерческ.{0,30}организаци/i,fund:/фонд/i,public_org:/общественн.{0,22}организаци/i,public_mov:/общественн.{0,22}движени/i,coop:/кооператив/i};
@@ -434,13 +444,16 @@ function fieldMessage(q){
  if(!answered(q))return 'Ответьте на этот вопрос.';
  if(q.number){const v=Number(get(q.id));if(!Number.isFinite(v))return 'Введите число.';if(q.min!==undefined&&v<q.min)return `Минимальное значение: ${q.min.toLocaleString('ru-RU')}.`;if(q.max!==undefined&&v>q.max)return `Максимальное значение: ${q.max.toLocaleString('ru-RU')}.`;if(q.step===1&&!Number.isInteger(v))return 'Укажите целое число.';}
  if(q.id==='full_name')return 'Укажите полное наименование с требуемой законом организационно-правовой формой (например, «Общество с ограниченной ответственностью …»).';
- if(q.id==='npo_income')return 'Членские взносы допустимы только для организаций с членством; для АНО, фонда и общественного движения выберите другие источники.';
+ if(q.id==='npo_income')return 'Для АНО, фонда и общественного движения членские взносы невозможны; для отдельных кооперативов применяйте специальный закон.';
  if(q.type==='multi'&&Array.isArray(get(q.id))&&q.options?.some(o=>o.exclusive&&get(q.id).includes(o.value)&&get(q.id).length>1))return 'Нельзя выбирать «Нет» или «Ничего из перечисленного» одновременно с другими вариантами.';
  if(q.id==='llc_capital_payment')return 'При капитале 10 000 ₽ он полностью оплачивается деньгами. Для имущественного вклада увеличьте капитал.';
  if(q.id==='llc_certify_method')return 'Для единственного участника необходимо предусмотреть подтверждение его собственного решения, а не подписание протокола частью участников.';
  if(q.id==='charter_public_three')return 'Для общественного объединения необходимо не менее трёх учредителей — физических лиц.';
  if(q.id==='charter_public_legal')return 'В числе учредителей — юридических лиц могут быть только общественные объединения.';
  if(q.id==='charter_founder_types')return 'Коммерческие компании не могут быть учредителями общественного объединения, даже если среди учредителей есть три гражданина.';
+ if(q.id==='assoc_top')return 'Съезд или конференция вместо общего собрания ассоциации допускаются при численности более 100 членов.';
+ if(q.id==='public_structure')return 'При выбранном территориальном статусе обязательны структурные подразделения.';
+ if(['founder_types','charter_founder_types'].includes(q.id))return 'Для единственного учредителя укажите одну основную категорию лиц; иностранный статус можно отметить дополнительно.';
  if(q.id==='charter_founders')return 'Проверьте минимальное или максимальное число участников выбранной формы.';
  return 'Уточните ответ: выбранный вариант не позволяет завершить этот шаг.';
 }
@@ -461,7 +474,7 @@ function showSectionErrors(questions){
  first?.querySelector('input:not(:disabled),textarea')?.focus({preventScroll:true});
 }
 function firstFormSection(form){return formSections(form)[0]?.id||'report';}
-function switchForm(form){if(!choices().includes(form))return;if(['project','choice'].includes(current)&&!validateBefore(current))return;ACTIVE_FORM=form;navigate(firstFormSection(form));}
+function switchForm(form){if(!choices().includes(form))return;ACTIVE_FORM=form;navigate(firstFormSection(form));}
 function navigate(id,questionId){
  current=id;$('sidebar').classList.remove('expanded');$('nav-toggle').setAttribute('aria-expanded','false');render();
  if(questionId){const el=[...document.querySelectorAll('[data-question]')].find(e=>e.dataset.question===questionId);el?.scrollIntoView({behavior:'auto',block:'center'});el?.querySelector('input:not(:disabled),textarea,summary')?.focus({preventScroll:true})}
@@ -528,6 +541,7 @@ function evaluate(){
  const form=ACTIVE_FORM,goal=get('goal'),founders=get('founders_form'),types=effectiveFounderTypes(),profits=get('profits'),mission=get('mission_paid');
  const blocking=[],cautions=[],tips=[];const add=(arr,s)=>{if(!arr.includes(s))arr.push(s)};
  const npo=['association','ano','fund','public_org','public_mov'];
+ const incomeNpo=[...npo,'coop'];
  if(!form)add(blocking,'Выберите организационно-правовую форму.');
  if(form==='ip')add(tips,'Индивидуальному предпринимателю устав не требуется.');
  if(form==='ip'&&['amend','transform'].includes(get('stage')))add(blocking,'ИП не имеет устава и не преобразуется в юридическое лицо как при реорганизации; нужно уточнить задачу регистрации.');
@@ -562,9 +576,9 @@ function evaluate(){
  }
  if(npo.includes(form)){
   if(goal==='business')add(blocking,'Извлечение прибыли для собственников не может быть основной целью НКО, даже если одновременно выбрано ООО. Для НКО нужна самостоятельная некоммерческая цель.');
-  const mixedBusiness=choices().includes('ooo')&&choices().includes(form);
+  const mixedBusiness=choices().some(f=>['ooo','ip'].includes(f))&&choices().includes(form);
   if(['distribute','mixed'].includes(profits)){
-   if(mixedBusiness)add(cautions,'Прибыль ООО можно распределять его участникам; прибыль НКО распределять между учредителями или членами нельзя. Эти потоки следует разделить.');
+   if(mixedBusiness)add(cautions,'Коммерческое направление ООО или ИП должно быть отделено от НКО: доходы НКО не распределяются между её учредителями и членами.');
    else add(blocking,'НКО не распределяет прибыль между учредителями и членами как доход от участия.');
   }
   if(['no','part'].includes(mission)){
@@ -582,20 +596,25 @@ function evaluate(){
  const limit=get('limit_amount');if(limit&&(!Number.isFinite(numericRubles(limit))||numericRubles(limit)<=0))add(blocking,'Порог согласования сделок должен быть положительной суммой в рублях; укажите число без символа процента и описания.');
  const noticeDays=String(get('meeting_notice_days')||'').trim();if(get('meeting_notice')==='custom'&&(!/^\d+$/.test(noticeDays)||!Number.isSafeInteger(Number(noticeDays))||Number(noticeDays)<1))add(blocking,'Укажите положительное целое число календарных дней для уведомления о собраниях.');
  if(form==='association'&&['main','additional'].includes(get('paid'))&&(get('customers')||[]).includes('members'))add(cautions,'Статья 123.11 ГК РФ даёт членам ассоциации право пользоваться её услугами на равных началах безвозмездно, если законом не установлено иное; платность для членов следует отдельно согласовать.');
- if(npo.includes(form)&&isLive('npo_asset_min')){
+ if(incomeNpo.includes(form)&&isLive('npo_asset_min')){
   if(get('npo_asset_min')==='no')add(blocking,'Для приносящей доход деятельности НКО необходима имущественная обеспеченность по п. 5 ст. 50 ГК РФ; подтверждения достаточного имущества нет.');
   if(get('npo_asset_min')==='will_provide')add(cautions,'До осуществления приносящей доход деятельности НКО необходимо обеспечить и подтвердить наличие достаточного имущества по п. 5 ст. 50 ГК РФ.');
  }
  if(form==='public_org'&&['main','additional'].includes(get('paid'))&&(get('customers')||[]).includes('members'))add(cautions,'По ст. 123.6 ГК РФ члены общественной организации вправе на равных началах безвозмездно пользоваться оказываемыми ею услугами. Платные услуги членам требуют дополнительной правовой оценки.');
+ if(['public_org','public_mov'].includes(form)){
+  if(get('public_founder_eligibility')==='no')add(blocking,'Не подтверждено соблюдение требований к учредителям по статье 19 закона № 82-ФЗ.');
+  if(get('public_founder_eligibility')==='special')add(cautions,'Проверьте специальные возрастные требования для детского или молодёжного объединения по статье 19 закона № 82-ФЗ.');
+ }
+ if(incomeNpo.includes(form)&&choices().length===1&&['main','additional'].includes(get('paid'))&&!(get('npo_income')||[]).some(x=>['service','property'].includes(x)))add(blocking,'Общий раздел предусматривает платную деятельность, но для этой единственной организации не отмечен соответствующий источник дохода. Согласуйте ответы.');
  if(form==='association'&&founders==='2')add(cautions,'Если в ассоциации будет два члена, заранее продумайте механизмы разрешения управленческих разногласий.');
  if(['public_org','public_mov'].includes(form)&&['allrussia','interregional'].includes(get('public_territory'))&&get('public_structure')==='no')add(blocking,'Для общероссийского и межрегионального общественного объединения требуются территориальные структурные подразделения (ст. 14 закона № 82-ФЗ).');
  if(['public_org','public_mov'].includes(form)&&['allrussia','interregional'].includes(get('public_territory'))&&get('public_structure')==='yes')add(cautions,'Проверить достаточность фактически созданных территориальных подразделений и соответствие заявленной территориальной сфере ст. 14 закона № 82-ФЗ.');
  if(form==='association'&&(get('npo_income')||[]).includes('fees')&&(get('assoc_fees')||[]).includes('none'))add(blocking,'В источниках финансирования указаны членские взносы, но для ассоциации выбран вариант без взносов; согласуйте модель.');
- if(form==='coop')add(blocking,'Для устава потребительского кооператива необходимо сначала установить точный вид и специальный закон; общая анкета не подтверждает готовность к регистрации.');
+ if(form==='coop')add(cautions,'Проверьте требования специального закона о выбранном виде потребительского кооператива: анкета собирает исходные данные, но не подтверждает регистрационную готовность устава.');
  if(types.includes('foreign'))add(cautions,'Проверить документы иностранных учредителей и возможные ограничения.');
  if((get('legal_risks')||[]).some(x=>x!=='none')){
   add(cautions,'Для выбранной сферы проверить специальные законы, лицензирование и возможные дополнительные требования.');
-  if((get('legal_risks')||[]).some(x=>['finance','sro','employers','sport','religion','housing'].includes(x)))add(blocking,'Для выбранной специальной сферы общая анкета не подтверждает достаточность устава для регистрации без отраслевого юридического анализа.');
+  if((get('legal_risks')||[]).some(x=>['finance','sro','employers','sport','religion','housing'].includes(x)))add(cautions,'Для специального статуса нужен отраслевой юридический анализ; заполнение анкеты не подтверждает готовность устава к регистрации.');
  }
  if(get('stage')==='transform')add(cautions,'Для преобразования необходимы решение о реорганизации, проверка допустимости перехода и применимых специальных норм. Заполненный устав сам по себе не заменяет регистрацию преобразования.');
  if(get('current')==='ip'&&get('stage')==='transform')add(blocking,'ИП не является юридическим лицом, его нельзя преобразовать в ООО или НКО посредством реорганизации.');
