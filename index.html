@@ -187,6 +187,7 @@ const OPEN_NOTES = new Set();
 
 let ACTIVE_FORM = null;
 let current = 'project';
+const LAST_SECTIONS = Object.create(null);
 let eligibilityNotice = '';
 const $ = id=>document.getElementById(id);
 const esc = s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -320,7 +321,7 @@ function renderNav(){
  for(const form of chosen){
   const stat=perFormStats(form);
   const caption=form==='ip'?'Устав не требуется':`${stat.done} из ${stat.total} обязательных`;
-  html+=`<button type="button" class="form-shortcut ${ACTIVE_FORM===form?'active':''}" data-form-switch="${esc(form)}" ${ACTIVE_FORM===form?'aria-current="step"':''}><span>${esc(LABELS[form])}</span><small>${esc(caption)}</small></button>`;
+  html+=`<button type="button" class="form-shortcut ${ACTIVE_FORM===form?'active':''}" data-form-switch="${esc(form)}" aria-pressed="${ACTIVE_FORM===form}"><span>${esc(LABELS[form])}</span><small>${esc(caption)}</small></button>`;
   if(form!==ACTIVE_FORM||form==='ip')continue;
   const secs=formSections(form);
   html+=secs.map((sec,i)=>{
@@ -478,8 +479,9 @@ function showSectionErrors(questions){
  first?.querySelector('input:not(:disabled),textarea')?.focus({preventScroll:true});
 }
 function firstFormSection(form){return formSections(form)[0]?.id||'report';}
-function switchForm(form){if(!choices().includes(form))return;ACTIVE_FORM=form;navigate(firstFormSection(form));}
+function switchForm(form){if(!choices().includes(form))return;ACTIVE_FORM=form;navigate(LAST_SECTIONS[form]||firstFormSection(form));}
 function navigate(id,questionId){
+ if(ACTIVE_FORM&&!['project','choice','report'].includes(id))LAST_SECTIONS[ACTIVE_FORM]=id;
  current=id;$('sidebar').classList.remove('expanded');$('nav-toggle').setAttribute('aria-expanded','false');render();
  if(questionId){const el=[...document.querySelectorAll('[data-question]')].find(e=>e.dataset.question===questionId);el?.scrollIntoView({behavior:'auto',block:'center'});el?.querySelector('input:not(:disabled),textarea,summary')?.focus({preventScroll:true})}
  else window.scrollTo(0,0);
@@ -518,7 +520,7 @@ function next(){
  const secs=formSections(ACTIVE_FORM);const i=secs.findIndex(s=>s.id===current);
  if(i>=0&&i<secs.length-1){navigate(secs[i+1].id);return;}
  const chosen=choices(),idx=chosen.indexOf(ACTIVE_FORM),nextForm=chosen.slice(idx+1).find(f=>f!=='ip');
- if(nextForm){ACTIVE_FORM=nextForm;navigate(firstFormSection(nextForm));return;}
+ if(nextForm){switchForm(nextForm);return;}
  navigate('report');
 }
 function render({focusId,focusValue}={}){
