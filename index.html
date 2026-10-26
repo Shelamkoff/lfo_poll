@@ -280,7 +280,7 @@ function bindFields(){
  });
 }
 function switchForm(form){if(!choices().includes(form))return;const first=choices()[0];if(form!==first&&!STARTED.has(form))return;
- ACTIVE_FORM=form;current='identity';navigate(current);
+ ACTIVE_FORM=form;current=isLive('membership')&&!get('membership')?'choice':'identity';navigate(current);
 }
 function navigate(id,questionId){current=id;$('sidebar').classList.remove('expanded');$('nav-toggle').setAttribute('aria-expanded','false');render();
  if(questionId){const el=[...document.querySelectorAll('[data-question]')].find(e=>e.dataset.question===questionId);el?.scrollIntoView({behavior:'auto',block:'center'});el?.querySelector('input,textarea,summary')?.focus({preventScroll:true})}
@@ -289,7 +289,7 @@ function navigate(id,questionId){current=id;$('sidebar').classList.remove('expan
 function next(){const ss=liveSections(),i=ss.findIndex(s=>s.id===current),second=choices()[1];
  if(i<ss.length-1){navigate(ss[i+1].id);return}
  if(second&&ACTIVE_FORM===choices()[0]&&formDone(ACTIVE_FORM)){
- STARTED.add(second);ACTIVE_FORM=second;navigate(liveSections().find(s=>s.id==='identity')?.id||'choice');return;
+ STARTED.add(second);ACTIVE_FORM=second;navigate(isLive('membership')&&!get('membership')?'choice':'identity');return;
  }
  navigate('report');
 }
@@ -367,7 +367,7 @@ function snapshot(){
 }
 function save(name,body,type){const blob=new Blob([body],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),8000)}
 function reportSections(form,includeShared){return forForm(form,()=>liveSections().filter(sec=>includeShared||!['project','choice'].includes(sec.id)).map(sec=>({title:sec.title,questions:sec.visible.filter(answered).map(q=>({label:q.label,value:pretty(q)}))})).filter(sec=>sec.questions.length))}
-function reportData(){const forms=choices().map(f=>forForm(f,()=>({form:f,assessment:evaluate(),sections:reportSections(f,false)})));return {forms,shared:reportSections(choices()[0]||null,true).filter(sec=>['Проект и цели','Выбор правовой формы'].includes(sec.title))};}
+function reportData(){const forms=choices().filter((f,i)=>i===0||STARTED.has(f)).map(f=>forForm(f,()=>({form:f,assessment:evaluate(),sections:reportSections(f,false)})));return {forms,shared:reportSections(choices()[0]||null,true).filter(sec=>['Проект и цели','Выбор правовой формы'].includes(sec.title))};}
 function exportText(){const r=reportData(),lines=['АНКЕТА ДЛЯ УСТАВОВ',`Дата: ${new Date().toLocaleDateString('ru-RU')}`,'',`Выбранные формы: ${choices().map(f=>LABELS[f]).join(' → ')}`];
  const addS=sections=>{for(const sec of sections){lines.push('','## '+sec.title);for(const q of sec.questions)lines.push(q.label,q.value,'')}};
  addS(r.shared);for(const entry of r.forms){lines.push('','### '+LABELS[entry.form]);addS(entry.sections);lines.push('Проверка: '+(entry.assessment.complete?'Заполнено':'Не завершено'));entry.assessment.blocking.forEach(x=>lines.push('Противоречие: '+x));entry.assessment.missing.forEach(q=>lines.push('Нет ответа: '+q.label))}
@@ -375,7 +375,7 @@ function exportText(){const r=reportData(),lines=['АНКЕТА ДЛЯ УСТА�
 }
 function exportJson(){save('Ответы_анкеты_ОПФ_и_устав.json',JSON.stringify(snapshot(),null,2),'application/json;charset=utf-8')}
 function report(){
- const data=reportData(),selected=choices(),allDone=selected.length>0&&data.forms.every(f=>f.assessment.complete);
+ const data=reportData(),selected=choices(),allDone=selected.length>0&&data.forms.length===selected.length&&data.forms.every(f=>f.assessment.complete);
  const reviewed=data.forms.filter(({form})=>form===selected[0]||STARTED.has(form));
  const missing=reviewed.flatMap(({form,assessment})=>assessment.missing.map(q=>({form,q}))),blocks=reviewed.flatMap(({form,assessment})=>assessment.blocking.map(text=>({form,text})));
  const caution=reviewed.flatMap(({form,assessment})=>assessment.cautions.map(text=>({form,text})));
@@ -398,7 +398,7 @@ function report(){
  $('import-json').onclick=()=>$('upload').click();$('upload').onchange=importFile;
  $('clear').onclick=()=>{if(confirm('Удалить все ответы? Если понадобится продолжить, сначала сохраните JSON.')){for(const k of Object.keys(COMMON))delete COMMON[k];for(const k of Object.keys(FORM_VALUES))delete FORM_VALUES[k];STARTED.clear();ACTIVE_FORM=null;navigate('project')}};
  $('back-form').onclick=()=>navigate(liveSections().at(-1)?.id||'project');
- if($('start-second'))$('start-second').onclick=()=>{STARTED.add(second);ACTIVE_FORM=second;navigate(liveSections().find(s=>s.id==='identity')?.id||'choice')};
+ if($('start-second'))$('start-second').onclick=()=>{STARTED.add(second);ACTIVE_FORM=second;navigate(isLive('membership')&&!get('membership')?'choice':'identity')};
  document.querySelectorAll('button[data-jump]').forEach(b=>b.onclick=()=>{
   const form=b.dataset.jumpform;if(form!==choices()[0]&&!STARTED.has(form))return;
   ACTIVE_FORM=form;const sec=liveSections().find(s=>s.visible.some(q=>q.id===b.dataset.jump));if(sec)navigate(sec.id,b.dataset.jump);
