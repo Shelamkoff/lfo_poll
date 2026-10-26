@@ -38,7 +38,7 @@ a{color:var(--accent);text-decoration:underline;text-underline-offset:2px}
 .content{min-width:0}
 h1{font-size:25px;line-height:1.3;letter-spacing:-.02em;margin:0 0 15px;font-weight:720}
 .section-desc{font-size:14px;color:var(--dim);margin:0 0 21px;max-width:720px}
-.question{min-width:0;border:0;padding:20px 0 25px;margin:0}
+.question{min-width:0;border:0;padding:15px 0 21px;margin:0}
 .question+.question{border-top:0}
 .question legend{font-size:16px;font-weight:680;line-height:1.45;float:left;width:100%;padding:0;margin:0 0 7px}
 .question legend:after{content:'';display:block;clear:both}
@@ -107,7 +107,7 @@ textarea.input{resize:vertical;min-height:105px}
 .recommendation div+div{margin-top:5px}
 .select-count{font-size:12px;color:var(--dim);margin:10px 0 0}
 .option-hint{display:inline-block;vertical-align:baseline;font-size:11px;line-height:1.4;color:var(--accent);font-weight:600;margin-left:6px}
-.form-progress-title{font-size:12px;font-weight:600;color:var(--dim);margin:12px 10px 5px}
+.nav button.form-shortcut{display:flex;flex-direction:column;gap:3px;padding:10px 12px}
 .form-shortcut{border:0;border-radius:4px;background:transparent;text-align:left;width:100%;display:flex;flex-direction:column;gap:3px;padding:10px 12px;min-height:46px;color:var(--dim);font-size:13px;line-height:1.3}
 .form-shortcut:hover:not(:disabled){background:#eef3f4;color:var(--ink)}
 .form-shortcut.active{background:var(--pale);color:var(--accent);font-weight:700}
@@ -160,20 +160,16 @@ textarea.input{resize:vertical;min-height:105px}
 @media(max-width:720px){.nav .nav-sub{padding-left:14px}}
 @media print{.field-error,.validation-summary{display:none!important}}
 
-.quick-save{padding:13px 10px 0}
-.quick-save button{border:0;border-radius:3px;background:none;color:var(--accent);font-weight:620;font-size:12px;text-decoration:underline;text-underline-offset:3px;padding:6px 0;cursor:pointer;text-align:left}
-.quick-save button:hover,.quick-save button:focus-visible{background:var(--pale);color:#0e3c4b;text-decoration-thickness:2px}
 a:focus-visible,.note summary:focus-visible{text-decoration-thickness:3px;color:#0e3b4c;background:var(--pale)}
-@media print{.quick-save{display:none!important}}
 </style>
 </head>
 <body>
 <div class="wrap"><div class="columns"><aside id="sidebar" class="sidebar" aria-label="Навигация по разделам">
 <p class="sidebar-title">Разделы</p>
 <button type="button" class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="nav">Разделы анкеты <span aria-hidden="true">▾</span></button>
-<div id="form-progress" aria-label="Выбранные формы"></div><nav id="nav" class="nav" aria-label="Разделы"></nav>
+<nav id="nav" class="nav" aria-label="Разделы анкеты и выбранные формы"></nav>
 <div class="progress-wrap"><div class="bar" id="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Заполнение обязательных вопросов"><span id="bar"></span></div><p id="progress-label" class="progress-label" aria-live="polite"></p></div>
-<div class="quick-save"><button type="button" id="quick-json">Сохранить ответы JSON</button></div><p class="privacy">Анкета работает без сервера. Ответы не отправляются в интернет; для продолжения сохраните JSON.</p>
+<p class="privacy">Анкета работает без сервера. Ответы не отправляются в интернет и хранятся только во вкладке до её закрытия или обновления. Итоги можно распечатать или скачать в Markdown.</p>
 </aside><main id="content" class="content"></main></div></div>
 <script>
 'use strict';
@@ -320,25 +316,22 @@ function renderNav(){
   const done=visible.filter(q=>answered(q)&&isValidField(q)).length;
   return `<button type="button" data-section="${esc(s.id)}" data-form="" class="${current===s.id?'current':''}" ${current===s.id?'aria-current="step"':''}>${i+1}. ${esc(s.title)}<span class="count">${done} / ${visible.length} ответов</span></button>`;
  }).join('');
- const progress=$('form-progress');
- progress.innerHTML=chosen.length?`<div class="form-progress-title">Выбранные формы · ${chosen.length}</div>`+chosen.map(f=>{
-  const status=perFormStats(f);
-  const caption=f==='ip'?'Устав не требуется':`${status.done} из ${status.total} обязательных`;
-  return `<button type="button" class="form-shortcut ${ACTIVE_FORM===f?'active':''}" data-form-switch="${esc(f)}"><span>${esc(LABELS[f])}</span><small>${esc(caption)}</small></button>`;
- }).join(''):'';
- progress.querySelectorAll('button[data-form-switch]').forEach(btn=>btn.addEventListener('click',()=>switchForm(btn.dataset.formSwitch)));
- for(const form of chosen.filter(f=>f===ACTIVE_FORM)){
-  if(form==='ip')continue;
-  html+=`<div class="nav-form-label">${esc(LABELS[form])}</div>`;
+ if(chosen.length)html+=`<div class="nav-form-label">Выбранные формы · ${chosen.length}</div>`;
+ for(const form of chosen){
+  const stat=perFormStats(form);
+  const caption=form==='ip'?'Устав не требуется':`${stat.done} из ${stat.total} обязательных`;
+  html+=`<button type="button" class="form-shortcut ${ACTIVE_FORM===form?'active':''}" data-form-switch="${esc(form)}" ${ACTIVE_FORM===form?'aria-current="step"':''}><span>${esc(LABELS[form])}</span><small>${esc(caption)}</small></button>`;
+  if(form!==ACTIVE_FORM||form==='ip')continue;
   const secs=formSections(form);
   html+=secs.map((sec,i)=>{
-   const isCurrent=ACTIVE_FORM===form&&current===sec.id;
+   const selected=current===sec.id;
    const done=forForm(form,()=>sec.visible.filter(q=>answered(q)&&isValidField(q)).length);
-   return `<button type="button" class="nav-sub ${isCurrent?'current':''}" data-section="${esc(sec.id)}" data-form="${esc(form)}" ${isCurrent?'aria-current="step"':''}>${i+1}. ${esc(sec.title)}<span class="count">${done} / ${sec.visible.length} ответов</span></button>`;
+   return `<button type="button" class="nav-sub ${selected?'current':''}" data-section="${esc(sec.id)}" data-form="${esc(form)}" ${selected?'aria-current="step"':''}>${i+1}. ${esc(sec.title)}<span class="count">${done} / ${sec.visible.length} ответов</span></button>`;
   }).join('');
  }
  html+=`<button type="button" data-section="report" data-form="" class="${current==='report'?'current':''}">Итоги и документы</button>`;
  nav.innerHTML=html;
+ nav.querySelectorAll('button[data-form-switch]').forEach(btn=>btn.addEventListener('click',()=>switchForm(btn.dataset.formSwitch)));
  nav.querySelectorAll('button[data-section]').forEach(btn=>btn.addEventListener('click',()=>goTo(btn.dataset.form||null,btn.dataset.section)));
  const project=forForm(null,()=>liveSections().find(s=>s.id==='project'));
  const projectQs=project?.visible.filter(q=>q.required)||[];
@@ -360,7 +353,7 @@ function questionMarkup(q){
   const recommended=rec[0]?.[0];
   const pre=q.id==='form_select'?`<p class="small">${recommended?`По вашим ответам в первую очередь подходит <strong>${esc(LABELS[recommended])}</strong>. Можно рассмотреть и другие доступные формы.`:'Заполните общий блок, чтобы получить рекомендацию.'}</p>${eligibilityNotice?`<p class="notice-line" role="status">Выбор скорректирован: ${esc(eligibilityNotice)}</p>`:''}`:'';
   const count=q.id==='form_select'?`<p class="select-count">Выбрано форм: ${choices().length}. Для каждой появится свой раздел устава.</p>`:'';
-  control=pre+`<div class="answers ${q.id==='form_select'?'forms-list':''}" role="group" aria-label="Варианты ответа">`+(q.options||[]).map(o=>{
+  control=pre+`<div class="answers ${q.id==='form_select'?'forms-list':''}">`+(q.options||[]).map(o=>{
    const checked=multi?Array.isArray(v)&&v.includes(o.value):v===o.value;
    const reason=q.id==='form_select'?ineligibleReason(o.value):(q.id==='npo_income'&&o.value==='fees'&&['ano','fund','public_mov'].includes(ACTIVE_FORM)?'У этой организации нет членства; членские взносы невозможны. Выберите имущественные взносы или пожертвования.':(q.id==='llc_certify_method'&&o.value==='part_sign'&&get('founders_form')==='1'?'При единственном участнике подписывать решение может только он сам.':''));
    const disabled=!!reason&&!checked;
@@ -610,25 +603,6 @@ function evaluate(){
  if(get('head_candidate')==='no')add(cautions,'Для регистрации потребуется назначить исполнительный орган.');
  const s=stats();return {form,blocking,cautions,tips,missing:s.missing,complete:!s.missing.length&&!blocking.length};
 }
-function snapshot(){
- const original=ACTIVE_FORM;const ss=choices();
- const commons={};const forms={};
- for(const sec of SECTIONS.filter(s=>s.id==='project'||s.id==='choice')){
-   for(const q of sec.questions){if(!COMMON_IDS.has(q.id)||q.id==='form_select')continue;
-    if(commons[q.id]!==undefined)continue;
-    const v=COMMON[q.id];if(v===undefined)continue;
-    if(sec.id==='project'&&testRule(q.when))commons[q.id]=v;
-   }
- }
- for(const form of ss){const data={};const state=forForm(form,()=>({sections:liveSections(),assessment:evaluate()}));
-  for(const sec of state.sections){for(const q of sec.visible){if(COMMON_IDS.has(q.id))continue;
-   const val=FORM_VALUES[form]?.[q.id];if(val!==undefined)data[q.id]=val;
-  }}
-  forms[form]={answers:data,complete:state.assessment.complete};
- }
- ACTIVE_FORM=original;
- return {schemaVersion:12,exportedAt:new Date().toISOString(),formOrder:ss,common:commons,forms};
-}
 function save(name,body,type){const blob=new Blob([body],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),8000)}
 function reportSections(form,includeShared){return forForm(form,()=>liveSections().filter(sec=>includeShared||!['project','choice'].includes(sec.id)).map(sec=>({title:sec.title,questions:sec.visible.filter(answered).map(q=>({label:q.label,value:pretty(q)}))})).filter(sec=>sec.questions.length))}
 
@@ -650,8 +624,6 @@ function exportMarkdown(){
  lines.push('','---','', 'Результат является заданием для подготовки проекта устава. Требуется юридическая проверка с учётом применимого специального закона и регистрационных документов.');
  return lines.join('\n');
 }
-function exportJson(){save('Ответы_анкеты_ОПФ_и_устав.json',JSON.stringify(snapshot(),null,2),'application/json;charset=utf-8')}
-
 function report(){
  const data=reportData(),selected=choices(),allDone=selected.length>0&&data.forms.every(f=>f.assessment.complete);
  const missing=data.forms.flatMap(({form,assessment})=>assessment.missing.map(q=>({form,q})));
@@ -662,20 +634,15 @@ function report(){
  (missing.length?`<section class="summary"><h2>Недостающие ответы: ${missing.length}</h2><ul class="unanswered">${missing.map(x=>`<li><button type="button" data-jump="${esc(x.q.id)}" data-jumpform="${esc(x.form)}">${formMark(x.form)}: ${esc(x.q.label)}</button></li>`).join('')}</ul></section>`:'')+
  (blockers.length?`<section class="summary"><h2>Требуют исправления</h2><ul>${blockers.map(x=>`<li>${formMark(x.form)}: ${esc(x.text)}</li>`).join('')}</ul></section>`:'')+
  (caution.length?`<section class="summary"><h2>Для проверки юристом</h2><ul>${caution.map(x=>`<li>${formMark(x.form)}: ${esc(x.text)}</li>`).join('')}</ul></section>`:'')+
- `<div class="action-set no-print"><button class="btn primary" id="print">Распечатать анкету</button><button class="btn" id="export-json">Скачать JSON</button><button class="btn" id="import-json">Загрузить JSON</button><button class="btn" id="export-md">Скачать Markdown</button><button class="btn warn" id="clear">Удалить ответы</button></div>`+
- `<p class="small">JSON позволяет позднее продолжить заполнение. Markdown и печатная версия содержат общие ответы и данные каждой выбранной организации.</p>`+
- `<div id="notice" role="status" aria-live="polite" class="status"></div><input id="upload" class="sr-only" type="file" accept=".json,application/json">`+
+ `<div class="action-set no-print"><button class="btn primary" id="print">Печать</button><button class="btn" id="export-md">Скачать Markdown</button></div>`+
+ `<p class="small no-print">Markdown и печатная версия включают общие ответы и сведения по каждой выбранной форме. При обновлении вкладки введённые ответы не сохраняются.</p>`+
+ ``+
  `<div id="print-area"><div class="print-head"><h2>Ответы для подготовки уставов</h2><p>Дата: ${esc(new Date().toLocaleDateString('ru-RU'))} · Формы: ${selected.map(formMark).join('; ')}</p></div>`+
  responseHtml(data.shared)+data.forms.map(item=>`<section class="form-report"><h2>${formMark(item.form)}</h2>${responseHtml(item.sections)}<p class="status">${item.assessment.complete?'Исходные данные собраны; требуется юридическая проверка':'Требуются дополнительные ответы или исправления'}</p></section>`).join('')+
  `<p class="report-foot">Ответы используются для разработки уставов. Для регистрации потребуются юридическая проверка и комплект необходимых документов.</p></div>`+
- `<div class="step-actions no-print"><button class="btn" id="back-form">Вернуться к вопросам</button><button class="btn primary" id="print-bottom">Распечатать</button></div>`;
- $('print').onclick=$('print-bottom').onclick=()=>window.print();
- $('export-json').onclick=exportJson;
+ `<div class="step-actions no-print"><button class="btn" id="back-form">Вернуться к вопросам</button></div>`;
+ $('print').onclick=()=>window.print();
  $('export-md').onclick=()=>save('Ответы_анкеты_ОПФ_и_устав.md',exportMarkdown(),'text/markdown;charset=utf-8');
- $('import-json').onclick=()=>$('upload').click();$('upload').onchange=importFile;
- $('clear').onclick=()=>{if(confirm('Удалить все ответы? Чтобы продолжить позднее, сначала сохраните JSON.')){
-  for(const k of Object.keys(COMMON))delete COMMON[k];for(const k of Object.keys(FORM_VALUES))delete FORM_VALUES[k];ACTIVE_FORM=null;eligibilityNotice='';navigate('project');
- }};
  $('back-form').onclick=()=>switchForm(ACTIVE_FORM||choices()[0]);
  document.querySelectorAll('button[data-jump]').forEach(btn=>btn.onclick=()=>{
   const form=btn.dataset.jumpform;if(!choices().includes(form))return;ACTIVE_FORM=form;
@@ -683,45 +650,7 @@ function report(){
  });
 }
 
-async function importFile(ev){
- const file=ev.target.files?.[0];if(!file)return;const notice=$('notice');
- try{
-  if(file.size>3000000)throw Error('Файл слишком большой');
-  const payload=JSON.parse(await file.text()),common=Object.create(null),forms=Object.create(null);
-  const clean=(q,v)=>{
-   if(!q)return undefined;
-   if(q.type==='radio')return typeof v==='string'&&q.options.some(o=>o.value===v)?v:undefined;
-   if(q.type==='multi')return Array.isArray(v)?v.filter((x,i)=>typeof x==='string'&&q.options.some(o=>o.value===x)&&v.indexOf(x)===i).slice(0,q.max||100):undefined;
-   return (typeof v==='string'||typeof v==='number')&&String(v).length<=12000?String(v):undefined;
-  };
-  let selected=[];
-  if([9,10,11,12].includes(payload?.schemaVersion)){
-   selected=Array.isArray(payload.formOrder)?payload.formOrder.filter((f,i,a)=>LABELS[f]&&a.indexOf(f)===i):[];
-   for(const [id,v]of Object.entries(payload.common||{})){if(!COMMON_IDS.has(id)||id==='form_select')continue;const x=clean(BY_ID[id],v);if(x!==undefined)common[id]=x;}
-   for(const f of selected){forms[f]=Object.create(null);for(const [id,v]of Object.entries(payload.forms?.[f]?.answers||{})){
-    if(COMMON_IDS.has(id)||!BY_ID[id])continue;const x=clean(BY_ID[id],v);if(x!==undefined)forms[f][id]=x;
-   }}
-  }else if(payload?.schemaVersion===8&&payload.answers&&typeof payload.answers==='object'){
-   const f=payload.answers.form;selected=LABELS[f]?[f]:[];
-   for(const [id,v]of Object.entries(payload.answers)){if(id==='form')continue;
-    const x=clean(BY_ID[id],v);if(x===undefined)continue;
-    if(COMMON_IDS.has(id))common[id]=x;else if(selected.length)(forms[selected[0]]??=Object.create(null))[id]=x;
-   }
-  }else throw Error('Неизвестная версия JSON');
-  if(!selected.length&&!Object.keys(common).length)throw Error('В файле нет ответов');
-  for(const k of Object.keys(COMMON))delete COMMON[k];for(const k of Object.keys(FORM_VALUES))delete FORM_VALUES[k];
-  Object.assign(COMMON,common);COMMON.form_select=selected;Object.assign(FORM_VALUES,forms);
-  if(COMMON.current==='public')delete COMMON.current; // Deprecated ambiguous category must be selected afresh.
-  for(const f of Object.keys(FORM_VALUES)){
-   if(['ano','fund','public_mov'].includes(f)&&Array.isArray(FORM_VALUES[f].npo_income))FORM_VALUES[f].npo_income=FORM_VALUES[f].npo_income.filter(x=>x!=='fees');
-  }
-  const before=choices().length;synchronizeSelected();
-  ACTIVE_FORM=choices()[0]||null;navigate(choices().length?'report':'project');
-  if($('notice'))$('notice').textContent=`Ответы загружены.${before!==choices().length?' Некоторые формы исключены из выбора, поскольку не соответствуют общим условиям.':''}`;
- }catch(e){notice.textContent='Не удалось загрузить JSON: '+e.message;}finally{ev.target.value='';}
-}
 $('nav-toggle').addEventListener('click',()=>{const on=$('sidebar').classList.toggle('expanded');$('nav-toggle').setAttribute('aria-expanded',String(on))});
-$('quick-json').onclick=exportJson;
 render();
 
 </script>
