@@ -336,6 +336,7 @@ test('cooperative legal name must state its primary purpose', () => {
   const state=app({goal:'mutual',founders:'2'});
   state.setAnswer('form_select',['coop']);
   state.setForm('coop');
+  state.setAnswer('coop_type','general');
   assert.ok(state.formSections('coop').flatMap(s=>s.visible).some(q=>q.id==='coop_name_purpose'&&q.required));
   state.setAnswer('coop_name_purpose','no');
   assert.equal(state.isValidField(question('coop_name_purpose')),false);
@@ -357,4 +358,55 @@ test('different founder types in separate organizations do not wrongly exclude p
 test('IP is still possible as a separate path when founder composition varies', () => {
   const state=app({goal:'mixed',founders:'varies',founder_types:['companies']});
   assert.equal(state.ineligibleReason('ip'),'');
+});
+
+test('mutual insurance must have at least five founders', () => {
+  const state=app({goal:'mutual',founders:'2'});
+  state.setAnswer('form_select',['coop']);
+  state.setForm('coop');
+  state.setAnswer('coop_type','insurance');
+  state.setAnswer('coop_insurance_founders','yes');
+  assert.equal(state.isValidField(question('coop_insurance_founders')),false);
+  assert.ok(state.evaluate().blocking.some(x=>x.includes('пяти учредителей')));
+});
+
+test('mutual insurance allows five-or-more exclusively legal founders', () => {
+  const state=app({goal:'mutual',founders:'3to50',founder_types:['companies']});
+  state.setAnswer('form_select',['coop']);
+  state.setForm('coop');
+  state.setAnswer('coop_type','insurance');
+  state.setAnswer('coop_insurance_founders','yes');
+  assert.equal(state.isValidField(question('coop_insurance_founders')),true);
+  assert.ok(!state.evaluate().blocking.some(x=>x.includes('участие граждан')));
+});
+
+test('ordinary cooperative cannot have only corporate founding members', () => {
+  const state=app({goal:'mutual',founders:'3to50',founder_types:['companies']});
+  state.setAnswer('form_select',['coop']);
+  state.setForm('coop');
+  state.setAnswer('coop_type','general');
+  assert.ok(state.evaluate().blocking.some(x=>x.includes('участие граждан')));
+  state.setAnswer('coop_members','legal_only');
+  assert.equal(state.isValidField(question('coop_members')),false);
+});
+
+test('mutual insurance full name accepts legally required designation', () => {
+  const state=app({goal:'mutual',founders:'3to50',founder_types:['companies']});
+  state.setAnswer('form_select',['coop']);
+  state.setForm('coop');
+  state.setAnswer('coop_type','insurance');
+  state.setAnswer('full_name','Потребительское общество взаимного страхования «Гарант»');
+  assert.equal(state.isValidField(question('full_name')),true);
+  state.setAnswer('full_name','Потребительский кооператив «Гарант»');
+  assert.equal(state.isValidField(question('full_name')),false);
+});
+
+test('mutual insurance has special founder confirmation and not generic coop name confirmation', () => {
+  const state=app({goal:'mutual',founders:'3to50'});
+  state.setAnswer('form_select',['coop']);
+  state.setForm('coop');
+  state.setAnswer('coop_type','insurance');
+  const ids=state.formSections('coop').flatMap(sec=>sec.visible.map(q=>q.id));
+  assert.ok(ids.includes('coop_insurance_founders'));
+  assert.ok(!ids.includes('coop_name_purpose'));
 });
