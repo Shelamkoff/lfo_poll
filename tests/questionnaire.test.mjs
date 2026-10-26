@@ -331,3 +331,30 @@ test('single-member company may found another single-member LLC under 2025 law',
   const state=app({founders:'1',founder_types:['companies']});
   assert.equal(state.ineligibleReason('ooo'),'');
 });
+
+test('cooperative legal name must state its primary purpose', () => {
+  const state=app({goal:'mutual',founders:'2'});
+  state.setAnswer('form_select',['coop']);
+  state.setForm('coop');
+  assert.ok(state.formSections('coop').flatMap(s=>s.visible).some(q=>q.id==='coop_name_purpose'&&q.required));
+  state.setAnswer('coop_name_purpose','no');
+  assert.equal(state.isValidField(question('coop_name_purpose')),false);
+  state.setAnswer('coop_name_purpose','yes');
+  assert.equal(state.isValidField(question('coop_name_purpose')),true);
+});
+
+test('different founder types in separate organizations do not wrongly exclude public association', () => {
+  const state=app({goal:'mixed',founders:'varies',founder_types:['companies']});
+  assert.equal(state.ineligibleReason('public_org'),'');
+  state.setAnswer('form_select',['ooo','public_org']);
+  state.setForm('public_org');
+  state.setAnswer('charter_founders','3to50');
+  state.setAnswer('charter_founder_types',['individuals']);
+  state.setAnswer('charter_public_three','yes');
+  assert.ok(state.formSections('public_org').flatMap(s=>s.visible).some(q=>q.id==='public_founder_eligibility'));
+});
+
+test('IP is still possible as a separate path when founder composition varies', () => {
+  const state=app({goal:'mixed',founders:'varies',founder_types:['companies']});
+  assert.equal(state.ineligibleReason('ip'),'');
+});
