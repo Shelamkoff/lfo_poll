@@ -365,7 +365,9 @@ function questionMarkup(q){
      q.id==='assoc_top'&&o.value==='delegates'&&get('assoc_future_count')!=='over100'?'Съезд или конференция в ассоциации допускаются при численности более 100 членов (ст. 65.3 ГК РФ).':
      q.id==='public_structure'&&o.value==='no'&&['allrussia','interregional'].includes(get('public_territory'))?'Для этого статуса требуются территориальные подразделения по ст. 14 закона № 82-ФЗ.':
      q.id==='public_branch_assets'&&o.value==='delegated'&&get('public_structure')!=='yes'?'Передавать полномочия некому: подразделения не предусмотрены. Выберите централизованное управление имуществом.':
-      q.id==='public_branch_status'&&o.value==='independent'&&ACTIVE_FORM==='public_mov'?'Закон № 7-ФЗ прямо разрешает самостоятельные территориальные юридические лица общественным организациям и ассоциациям, но не устанавливает здесь аналогичное правило для общественного движения.':'';
+      q.id==='public_branch_status'&&o.value==='independent'&&ACTIVE_FORM==='public_mov'?'Закон № 7-ФЗ прямо разрешает самостоятельные территориальные юридические лица общественным организациям и ассоциациям, но не устанавливает здесь аналогичное правило для общественного движения.':
+     q.id==='coop_members'&&o.value==='legal_only'&&get('coop_type')!=='insurance'?'Для обычного потребительского кооператива требуется участие граждан; исключение для общества взаимного страхования (ст. 123.2 ГК РФ).':
+     q.id==='coop_insurance_founders'&&o.value==='yes'&&['1','2'].includes(get('founders_form'))?'Общество взаимного страхования создаётся не менее чем пятью учредителями (ст. 5 закона № 286-ФЗ).':'';
    const disabled=!!reason&&!checked;
    const recommendedOption=q.id==='form_select'&&o.value===recommended;
    const help=reason?`<span class="option-sub">Недоступно: ${esc(reason)}</span>`:(o.note?`<span class="option-sub">${esc(o.note)}</span>`:'');
@@ -377,7 +379,7 @@ function questionMarkup(q){
   const numeric=!!q.number;
   const attrs=numeric?` type="number" inputmode="decimal" ${q.min!==undefined?`min="${q.min}"`:''} ${q.max!==undefined?`max="${q.max}"`:''} step="${q.step??'any'}"`:' type="text" maxlength="2000"';
   const examples={ooo:'Общество с ограниченной ответственностью «Пример»',association:'Ассоциация «Профессиональное сообщество»',ano:'Автономная некоммерческая организация «Пример»',fund:'Общественно полезный фонд «Помощь»',public_org:'Региональная общественная организация содействия образованию «Знание»',public_mov:'Межрегиональное общественное движение защиты животных «Помощь»',coop:'Потребительский кооператив по организации совместных закупок «Содействие»'};
-  const placeholder=q.id==='full_name'?examples[ACTIVE_FORM]:(q.placeholder||(numeric?'Укажите число':'Укажите ответ'));
+  const placeholder=q.id==='full_name'&&ACTIVE_FORM==='coop'&&get('coop_type')==='insurance'?'Потребительское общество взаимного страхования «Гарант»':q.id==='full_name'?examples[ACTIVE_FORM]:(q.placeholder||(numeric?'Укажите число':'Укажите ответ'));
   control=`<input class="input" id="field-${esc(q.id)}" aria-labelledby="legend-${esc(q.id)}"${attrs} value="${esc(v??'')}" placeholder="${esc(placeholder)}" ${q.help?`aria-describedby="help-${esc(q.id)}"`:''}>`;
  }
  let note='';
@@ -433,12 +435,15 @@ function isValidField(q){
  if(q.id==='public_branch_status'&&value==='independent'&&ACTIVE_FORM==='public_mov')return false;
  if(q.id==='public_name_compliance'&&value!=='yes')return false;
  if(q.id==='coop_name_purpose'&&value!=='yes')return false;
+ if(q.id==='coop_insurance_founders'&&(value!=='yes'||['1','2'].includes(get('founders_form'))))return false;
+ if(q.id==='coop_members'&&value==='legal_only'&&get('coop_type')!=='insurance')return false;
  if(q.id==='founder_types'&&COMMON.founders==='1'&&Array.isArray(value)&&['individuals','companies','npo'].filter(x=>value.includes(x)).length>1)return false;
  if(q.id==='charter_founder_types'&&get('founders_form')==='1'&&Array.isArray(value)&&['individuals','companies','npo'].filter(x=>value.includes(x)).length>1)return false;
  if(q.id==='full_name'&&value){
    const name=String(value).trim();
    const patterns={ooo:/общество\s+с\s+ограниченной\s+ответственностью/i,association:/(ассоциаци|союз)/i,ano:/автономн.{0,30}некоммерческ.{0,30}организаци/i,fund:/фонд/i,public_org:/общественн.{0,22}организаци/i,public_mov:/общественн.{0,22}движени/i,coop:/кооператив/i};
-   if(patterns[ACTIVE_FORM]&&!patterns[ACTIVE_FORM].test(name))return false;
+   const namePattern=ACTIVE_FORM==='coop'&&get('coop_type')==='insurance'?/потребительск\S*\s+обществ\S*\s+взаимн\S*\s+страхован\S*/i:patterns[ACTIVE_FORM];
+   if(namePattern&&!namePattern.test(name))return false;
    const bare=/^(?:общество\s+с\s+ограниченной\s+ответственностью|автономная\s+некоммерческая\s+организация|общественно\s+полезный\s+фонд|фонд|ассоциация|союз|общественная\s+организация|общественное\s+движение|потребительский\s+кооператив)\s*$/i;
    if(bare.test(name))return false;
  }
@@ -458,7 +463,7 @@ function isValidField(q){
 function fieldMessage(q){
  if(!answered(q))return 'Ответьте на этот вопрос.';
  if(q.number){const v=Number(get(q.id));if(!Number.isFinite(v))return 'Введите число.';if(q.min!==undefined&&v<q.min)return `Минимальное значение: ${q.min.toLocaleString('ru-RU')}.`;if(q.max!==undefined&&v>q.max)return `Максимальное значение: ${q.max.toLocaleString('ru-RU')}.`;if(q.step===1&&!Number.isInteger(v))return 'Укажите целое число.';}
- if(q.id==='full_name')return 'Укажите полное наименование с требуемой законом организационно-правовой формой (например, «Общество с ограниченной ответственностью …»).';
+ if(q.id==='full_name')return ACTIVE_FORM==='coop'&&get('coop_type')==='insurance'?'Название общества взаимного страхования должно содержать слова «потребительское общество взаимного страхования» (ст. 5 закона № 286-ФЗ).':'Укажите полное наименование с обязательной организационно-правовой формой и предусмотренными законом указаниями.';
  if(q.id==='npo_income')return ACTIVE_FORM==='coop'?'Для потребительского кооператива укажите обязательные паевые взносы членов (ст. 123.2 ГК РФ).':'Членские взносы допустимы только для организаций с членством, а паевые — для потребительского кооператива.';
  if(q.id==='npo_asset_min')return 'Нужно определить наличие и рыночную стоимость имущества для планируемой приносящей доход деятельности НКО.';
  if(q.type==='multi'&&Array.isArray(get(q.id))&&q.options?.some(o=>o.exclusive&&get(q.id).includes(o.value)&&get(q.id).length>1))return 'Нельзя выбирать «Нет» или «Ничего из перечисленного» одновременно с другими вариантами.';
@@ -473,6 +478,8 @@ function fieldMessage(q){
  if(q.id==='public_branch_status')return 'Для движения выберите отделение по общему уставу либо филиал или представительство. Самостоятельное юрлицо нуждается в отдельной проверке.';
  if(q.id==='public_name_compliance')return 'Полное наименование общественного объединения должно отражать территориальную сферу и характер деятельности (ст. 28 закона № 82-ФЗ).';
  if(q.id==='coop_name_purpose')return 'Укажите в полном наименовании кооператива его основную цель деятельности (ст. 123.2 ГК РФ).';
+ if(q.id==='coop_insurance_founders')return 'Общество взаимного страхования должно иметь не менее пяти учредителей (ч. 2 ст. 5 закона № 286-ФЗ).';
+ if(q.id==='coop_members')return 'У обычного потребительского кооператива должны быть члены-граждане. Только юридические лица могут создавать общество взаимного страхования.';
  if(['founder_types','charter_founder_types'].includes(q.id))return 'Укажите хотя бы одну основную категорию лиц. Для единственного учредителя она должна быть одна, а иностранный статус отмечается дополнительно.';
  if(q.id==='charter_founders')return 'Проверьте минимальное или максимальное число участников выбранной формы.';
  return 'Уточните ответ: выбранный вариант не позволяет завершить этот шаг.';
