@@ -362,7 +362,8 @@ function questionMarkup(q){
      q.id==='llc_certify_method'&&o.value==='part_sign'&&get('founders_form')==='1'?'Единственный участник оформляет решение без общего собрания.':
      q.id==='assoc_top'&&o.value==='delegates'&&get('assoc_future_count')!=='over100'?'Съезд или конференция в ассоциации допускаются при численности более 100 членов (ст. 65.3 ГК РФ).':
      q.id==='public_structure'&&o.value==='no'&&['allrussia','interregional'].includes(get('public_territory'))?'Для этого статуса требуются территориальные подразделения по ст. 14 закона № 82-ФЗ.':
-     q.id==='public_branch_assets'&&o.value==='delegated'&&get('public_structure')!=='yes'?'Передавать полномочия некому: подразделения не предусмотрены. Выберите централизованное управление имуществом.':'';
+     q.id==='public_branch_assets'&&o.value==='delegated'&&get('public_structure')!=='yes'?'Передавать полномочия некому: подразделения не предусмотрены. Выберите централизованное управление имуществом.':
+      q.id==='public_branch_status'&&o.value==='independent'&&ACTIVE_FORM==='public_mov'?'Закон № 7-ФЗ прямо разрешает самостоятельные территориальные юридические лица общественным организациям и ассоциациям, но не устанавливает здесь аналогичное правило для общественного движения.':'';
    const disabled=!!reason&&!checked;
    const recommendedOption=q.id==='form_select'&&o.value===recommended;
    const help=reason?`<span class="option-sub">Недоступно: ${esc(reason)}</span>`:(o.note?`<span class="option-sub">${esc(o.note)}</span>`:'');
@@ -425,6 +426,7 @@ function isValidField(q){
  if(q.id==='assoc_top'&&value==='delegates'&&get('assoc_future_count')!=='over100')return false;
  if(q.id==='public_structure'&&value==='no'&&['allrussia','interregional'].includes(get('public_territory')))return false;
  if(q.id==='public_branch_assets'&&value==='delegated'&&get('public_structure')!=='yes')return false;
+ if(q.id==='public_branch_status'&&value==='independent'&&ACTIVE_FORM==='public_mov')return false;
  if(q.id==='founder_types'&&COMMON.founders==='1'&&Array.isArray(value)&&['individuals','companies','npo'].filter(x=>value.includes(x)).length>1)return false;
  if(q.id==='charter_founder_types'&&get('founders_form')==='1'&&Array.isArray(value)&&['individuals','companies','npo'].filter(x=>value.includes(x)).length>1)return false;
  if(q.id==='full_name'&&value){
@@ -462,6 +464,7 @@ function fieldMessage(q){
  if(q.id==='assoc_top')return 'Съезд или конференция вместо общего собрания ассоциации допускаются при численности более 100 членов.';
  if(q.id==='public_structure')return 'При выбранном территориальном статусе обязательны структурные подразделения.';
  if(q.id==='public_branch_assets')return 'Передать имущественные полномочия можно только существующим или планируемым подразделениям.';
+ if(q.id==='public_branch_status')return 'Для движения выберите отделение по общему уставу либо филиал или представительство. Самостоятельное юрлицо нуждается в отдельной проверке.';
  if(['founder_types','charter_founder_types'].includes(q.id))return 'Укажите хотя бы одну основную категорию лиц. Для единственного учредителя она должна быть одна, а иностранный статус отмечается дополнительно.';
  if(q.id==='charter_founders')return 'Проверьте минимальное или максимальное число участников выбранной формы.';
  return 'Уточните ответ: выбранный вариант не позволяет завершить этот шаг.';
@@ -615,6 +618,7 @@ function evaluate(){
  }
  if(form==='public_org'&&['main','additional'].includes(get('paid'))&&(get('customers')||[]).includes('members'))add(cautions,'По ст. 123.6 ГК РФ члены общественной организации вправе на равных началах безвозмездно пользоваться оказываемыми ею услугами. Платные услуги членам требуют дополнительной правовой оценки.');
  if(['public_org','public_mov'].includes(form)){
+  if(form==='public_org'&&get('public_branch_status')==='independent')add(cautions,'Самостоятельные территориальные юридические лица требуют отдельных уставов и регистрации по ст. 5.1 закона № 7-ФЗ, их имущество необходимо разграничивать с имуществом головной организации.');
   if(get('public_founder_eligibility')==='no')add(blocking,'Не подтверждено соблюдение требований к учредителям по статье 19 закона № 82-ФЗ.');
   if(get('public_founder_eligibility')==='special')add(cautions,'Проверьте правоспособность каждого учредителя по ст. 19 закона № 82-ФЗ: более низкий возраст участников детских и молодёжных объединений не означает автоматического исключения из общего правила о совершеннолетии учредителей.');
  }
