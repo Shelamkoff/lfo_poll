@@ -582,18 +582,10 @@ function evaluate(){
   const amount=numericRubles(get('llc_capital_amount'));
   if(get('llc_capital_amount')&&(!Number.isFinite(amount)||amount<10000))add(blocking,'Уставный капитал ООО меньше общего минимума 10 000 рублей или указан некорректно.');
   if(get('llc_typical_number')&&get('llc_charter_mode')==='typical'&&!/^(?:[1-9]|[12]\d|3[0-6])$/.test(String(get('llc_typical_number')).trim()))add(blocking,'Номер типового устава ООО должен быть действительным номером из списка ФНС.');
-  if(get('llc_charter_mode')==='typical'&&['yes'].includes(get('llc_council')))add(blocking,'Нельзя индивидуально добавить совет директоров в неизменяемый текст типового устава ООО.');
-  if(get('llc_charter_mode')==='typical'&&['special'].includes(get('llc_profit_order')))add(blocking,'Для особого порядка распределения прибыли требуется индивидуальный устав.');
-  if(get('llc_charter_mode')==='typical'&&['additional'].includes(get('llc_obligations')))add(blocking,'Дополнительные обязанности участников нельзя произвольно включить в неизменяемый типовой устав.');
-  if(get('llc_charter_mode')==='typical'&&['other'].includes(get('llc_vote')))add(blocking,'Иной порядок голосов нельзя включить в неизменяемый типовой устав.');
-  if(get('llc_charter_mode')==='typical'&&['higher'].includes(get('meeting_quorum')))add(blocking,'Изменённый кворум требует проверки совместимости с типовым уставом; выберите индивидуальную редакцию.');
-  if(get('llc_charter_mode')==='typical'&&get('voting_details'))add(blocking,'Специальные пороги голосования требуют индивидуального устава либо точного совпадения с утверждённым типовым вариантом.');
-  if(get('llc_charter_mode')==='typical'&&get('meeting_notice')==='custom')add(cautions,'Проверьте, предусматривает ли выбранный номер типового устава нужный срок уведомлений.');
   if(get('llc_charter_mode')==='typical'&&!get('llc_typical_number'))add(blocking,'Для типового устава нужно выбрать конкретный номер из опубликованных ФНС вариантов.');
-  if(get('llc_charter_mode')==='typical'&&get('llc_typical_number'))add(cautions,'Сверьте все выбранные условия с полным текстом типового устава ФНС соответствующего номера: в анкете нельзя изменить его положения.');
+  if(get('llc_charter_mode')==='typical'&&get('llc_typical_number'))add(cautions,'Проверьте, что выбранный номер типового устава ФНС соответствует планируемой модели управления и оборота долей. Текст типового устава не редактируется; изменения требуют выбора другого номера или индивидуального устава.');
   if(get('llc_capital_payment')==='money_property'&&amount===10000)add(blocking,'При капитале ровно 10 000 рублей оплата возможна только денежными средствами; неденежный вклад требует капитала сверх минимума.');
   if(founders==='1'&&get('llc_exit')&&get('llc_exit')!=='no')add(cautions,'Выход единственного участника из ООО запрещён.');
-  if(get('llc_charter_mode')==='typical'&&['yes'].includes(get('llc_special_rights')))add(cautions,'Специальные права участников требуют индивидуального устава либо иной допустимой правовой конструкции.');
  }
  if(npo.includes(form)){
   if(goal==='business')add(blocking,'Извлечение прибыли для собственников не может быть основной целью НКО, даже если одновременно выбрано ООО. Для НКО нужна самостоятельная некоммерческая цель.');
