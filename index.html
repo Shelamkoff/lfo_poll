@@ -193,7 +193,7 @@ const $ = id=>document.getElementById(id);
 const esc = s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const choices=()=>Array.isArray(COMMON.form_select)?COMMON.form_select:[];
 const defaultValue=id=>BY_ID[id]?.default;
-const needsOwnFounders=()=>choices().length>1||COMMON.founders==='varies';
+const needsOwnFounders=()=>choices().filter(f=>f!=='ip').length>1||COMMON.founders==='varies';
 const get=id=>id==='form'?ACTIVE_FORM:id==='founders_form'?(needsOwnFounders()?FORM_VALUES[ACTIVE_FORM]?.charter_founders:COMMON.founders):COMMON_IDS.has(id)?COMMON[id]:(FORM_VALUES[ACTIVE_FORM]?.[id]??defaultValue(id));
 const effectiveFounderTypes=()=>needsOwnFounders()?FORM_VALUES[ACTIVE_FORM]?.charter_founder_types||[]:COMMON.founder_types||[];
 const effectivePublicThree=()=>needsOwnFounders()?FORM_VALUES[ACTIVE_FORM]?.charter_public_three:COMMON.public_three;
@@ -266,7 +266,7 @@ function testRule(rule){
   if(rule.any)return rule.any.some(testRule);
   if(rule.form)return rule.form.includes(ACTIVE_FORM);
   if(rule.notForm)return !rule.notForm.includes(ACTIVE_FORM);
-  if(rule.twoForms)return choices().length>1;
+  if(rule.twoForms)return choices().filter(f=>f!=='ip').length>1;
   if(rule.oneForm)return choices().length===1;
   if(rule.id){const v=get(rule.id);
     if(rule.in)return rule.in.includes(v);
