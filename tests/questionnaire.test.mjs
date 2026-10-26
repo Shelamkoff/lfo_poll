@@ -160,3 +160,105 @@ test('foreign status alone does not identify the founder category', () => {
   const state = app({founder_types:['foreign']});
   assert.equal(state.isValidField(question('founder_types')),false);
 });
+
+test('varying founder counts enable comparison of otherwise incompatible legal forms', () => {
+  const state = app({founders:'varies', founder_types:['individuals','companies','npo'],goal:'mixed'});
+  assert.equal(state.ineligibleReason('association'), '');
+  assert.equal(state.ineligibleReason('public_org'), '');
+  state.setAnswer('form_select', ['ooo','association','public_org']);
+  state.setForm('association');
+  assert.ok(state.formSections('association').some(s => s.id === 'charter_team'));
+  state.setAnswer('charter_founders','2');
+  state.setAnswer('charter_founder_types',['individuals']);
+  assert.equal(state.get('founders_form'),'2');
+  state.setForm('public_org');
+  assert.ok(state.formSections('public_org').some(s => s.id === 'charter_team'));
+});
+
+test('a single selected form still asks for founder details when shared count varies', () => {
+  const state = app({founders:'varies'});
+  state.setAnswer('form_select',['ooo']);
+  state.setForm('ooo');
+  assert.ok(state.formSections('ooo').some(s => s.id === 'charter_team'));
+});
+
+test('common declaration of one founder still excludes an association', () => {
+  const state = app({founders:'1'});
+  assert.match(state.ineligibleReason('association'), /двух/);
+});
+
+test('public organization now has mandatory property rights and membership timing', () => {
+  const state = app({founders:'3to50',founder_types:['individuals'],public_three:'yes',goal:'civic'});
+  state.setAnswer('form_select',['public_org']);
+  state.setForm('public_org');
+  const questions = state.formSections('public_org').flatMap(s => s.visible);
+  assert.ok(questions.some(q => q.id === 'public_member_property' && q.required));
+  assert.ok(questions.some(q => q.id === 'public_membership_start' && q.required));
+  assert.ok(questions.some(q => q.id === 'public_name_compliance' && q.required));
+  assert.ok(questions.some(q => q.id === 'public_branch_assets' && q.required));
+});
+
+test('public movement asks asset governance without inventing members', () => {
+  const state = app({founders:'3to50',founder_types:['individuals'],public_three:'yes',goal:'civic'});
+  state.setAnswer('form_select',['public_mov']);
+  state.setForm('public_mov');
+  const questions=state.formSections('public_mov').flatMap(s => s.visible);
+  assert.ok(questions.some(q=>q.id==='public_branch_assets' && q.required));
+  assert.ok(!questions.some(q=>q.id==='public_member_property'));
+});
+
+test('movement cannot use the separate public-organization territorial entity rule', () => {
+  const state = app({founders:'3to50',founder_types:['individuals'],public_three:'yes',goal:'civic'});
+  state.setAnswer('form_select',['public_mov']);
+  state.setForm('public_mov');
+  state.setAnswer('public_structure','yes');
+  state.setAnswer('public_branch_status','independent');
+  assert.equal(state.isValidField(question('public_branch_status')),false);
+});
+
+test('public association cannot delegate property authority to nonexistent divisions', () => {
+  const state = app({founders:'3to50',founder_types:['individuals'],public_three:'yes',goal:'civic'});
+  state.setAnswer('form_select',['public_org']);
+  state.setForm('public_org');
+  state.setAnswer('public_structure','no');
+  state.setAnswer('public_branch_assets','delegated');
+  assert.equal(state.isValidField(question('public_branch_assets')),false);
+});
+
+test('public name legal compliance must be explicitly confirmed', () => {
+  const state=app({founders:'3to50',founder_types:['individuals'],public_three:'yes',goal:'civic'});
+  state.setAnswer('form_select',['public_org']);
+  state.setForm('public_org');
+  state.setAnswer('public_name_compliance','no');
+  assert.equal(state.isValidField(question('public_name_compliance')),false);
+  state.setAnswer('public_name_compliance','yes');
+  assert.equal(state.isValidField(question('public_name_compliance')),true);
+});
+
+test('fund must resolve appointment of executive and special-law basis', () => {
+  const state=app({goal:'charity'});
+  state.setAnswer('form_select',['fund']);
+  state.setForm('fund');
+  let questions=state.formSections('fund').flatMap(s=>s.visible);
+  assert.ok(questions.some(q=>q.id==='fund_executive_appointment'&&q.required));
+  state.setAnswer('fund_executive_appointment','special');
+  questions=state.formSections('fund').flatMap(s=>s.visible);
+  assert.ok(questions.some(q=>q.id==='fund_executive_appointment_basis'&&q.required));
+});
+
+test('association membership commencement is a required charter decision', () => {
+  const state=app({founders:'2',goal:'members'});
+  state.setAnswer('form_select',['association']);
+  state.setForm('association');
+  assert.ok(state.formSections('association').flatMap(s=>s.visible).some(q=>q.id==='assoc_membership_start'&&q.required));
+});
+
+test('business profit objective is not accepted for consumer cooperative', () => {
+  const state=app({founders:'2',goal:'business'});
+  assert.match(state.ineligibleReason('coop'), /некоммерческим организациям/);
+});
+
+test('legal reference inventory includes 2026 public property rules', () => {
+  const refs=app().config.refs;
+  assert.ok(refs.ob32 && refs.ob33 && refs.nko51 && refs.gk1235);
+});
