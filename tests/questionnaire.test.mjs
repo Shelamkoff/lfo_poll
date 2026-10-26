@@ -77,6 +77,7 @@ test('one-member LLC has no irrelevant general-meeting procedures', () => {
   const state = app();
   state.setAnswer('form_select', ['ooo']);
   state.setForm('ooo');
+  state.setAnswer('llc_charter_mode','individual');
   const ids = state.formSections('ooo').flatMap(s => s.visible.map(q => q.id));
   assert.ok(ids.includes('llc_certify'));
   for (const id of ['meeting_notice', 'meeting_quorum', 'notices', 'absentee'])
@@ -87,6 +88,7 @@ test('two-member LLC can specify meeting rules', () => {
   const state = app({founders: '2'});
   state.setAnswer('form_select', ['ooo']);
   state.setForm('ooo');
+  state.setAnswer('llc_charter_mode','individual');
   assert.ok(state.formSections('ooo').flatMap(s => s.visible).some(q => q.id === 'meeting_notice'));
 });
 
@@ -261,4 +263,71 @@ test('business profit objective is not accepted for consumer cooperative', () =>
 test('legal reference inventory includes 2026 public property rules', () => {
   const refs=app().config.refs;
   assert.ok(refs.ob32 && refs.ob33 && refs.nko51 && refs.gk1235);
+});
+
+test('typical LLC charter excludes individually drafted corporate rules', () => {
+  const state=app({founders:'2'});
+  state.setAnswer('form_select',['ooo']);
+  state.setForm('ooo');
+  state.setAnswer('llc_charter_mode','typical');
+  const ids=state.formSections('ooo').flatMap(section=>section.visible.map(q=>q.id));
+  for(const id of ['llc_council','llc_exit','llc_profit_order','llc_certify','meeting_quorum','notices'])
+    assert.ok(!ids.includes(id),'Individual provision absent from standard charter: '+id);
+  for(const id of ['llc_charter_mode','llc_typical_number','llc_capital_amount','llc_capital_payment'])
+    assert.ok(ids.includes(id),'Registration or typical charter field remains: '+id);
+});
+
+test('individual LLC charter includes statutory customization choices', () => {
+  const state=app({founders:'2'});
+  state.setAnswer('form_select',['ooo']);
+  state.setForm('ooo');
+  state.setAnswer('llc_charter_mode','individual');
+  const ids=state.formSections('ooo').flatMap(section=>section.visible.map(q=>q.id));
+  for(const id of ['llc_exit','llc_profit_order','llc_certify','meeting_quorum','notices'])
+    assert.ok(ids.includes(id),'Custom charter provision visible: '+id);
+  assert.ok(!ids.includes('llc_typical_number'));
+});
+
+test('switching from individual to typical ignores stale hidden charter options', () => {
+  const state=app({founders:'2'});
+  state.setAnswer('form_select',['ooo']);
+  state.setForm('ooo');
+  state.setAnswer('llc_charter_mode','individual');
+  state.setAnswer('llc_council','yes');
+  state.setAnswer('llc_profit_order','special');
+  state.setAnswer('llc_vote','other');
+  state.setAnswer('llc_charter_mode','typical');
+  state.setAnswer('llc_typical_number','1');
+  assert.ok(!state.evaluate().blocking.some(x=>/Нельзя индивидуально добавить|особого порядка распределения|иной порядок голосов/.test(x)));
+});
+
+test('consumer cooperative requires member share funding', () => {
+  const state=app({founders:'2',goal:'mutual'});
+  state.setAnswer('form_select',['coop']);
+  state.setForm('coop');
+  state.setAnswer('npo_income',['donations']);
+  assert.equal(state.isValidField(question('npo_income')),false);
+  state.setAnswer('npo_income',['shares','donations']);
+  assert.equal(state.isValidField(question('npo_income')),true);
+});
+
+test('share funding cannot be chosen by non-cooperative NPO', () => {
+  const state=app({goal:'services'});
+  state.setAnswer('form_select',['ano']);
+  state.setForm('ano');
+  assert.match(state.questionMarkup(question('npo_income')),/Недоступно: Паевые взносы/);
+  state.setAnswer('npo_income',['shares']);
+  assert.equal(state.isValidField(question('npo_income')),false);
+});
+
+test('comparison of IP with one LLC does not create a second founder section', () => {
+  const state=app({goal:'mixed',founders:'1'});
+  state.setAnswer('form_select',['ip','ooo']);
+  state.setForm('ooo');
+  assert.ok(!state.formSections('ooo').some(s=>s.id==='charter_team'));
+});
+
+test('single-member company may found another single-member LLC under 2025 law', () => {
+  const state=app({founders:'1',founder_types:['companies']});
+  assert.equal(state.ineligibleReason('ooo'),'');
 });
