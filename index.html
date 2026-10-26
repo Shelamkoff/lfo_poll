@@ -275,7 +275,7 @@ function testRule(rule){
 function liveSections(){return SECTIONS.filter(s=>(ACTIVE_FORM!=='ip'||['project','choice'].includes(s.id))&&testRule(s.when)).map(s=>({...s,visible:s.questions.filter(q=>testRule(q.when))})).filter(s=>s.visible.length)}
 function isLive(id){return liveSections().some(s=>s.visible.some(q=>q.id===id))}
 function answered(q){const v=get(q.id);return Array.isArray(v)?v.length>0:typeof v==='string'&&v.trim().length>0}
-function unresolved(q){if(!q.required)return false;const v=get(q.id);return !answered(q)||['unknown','undecided'].includes(v)}
+function unresolved(q){if(!q.required)return false;const v=get(q.id);return !answered(q)||(['unknown','undecided'].includes(v)&&!['paid','mission_paid'].includes(q.id))}
 function stats(){const qs=liveSections().flatMap(s=>s.visible).filter(q=>q.required);const missing=qs.filter(q=>!isValidField(q));return {qs,missing,done:qs.length-missing.length,pct:qs.length?Math.round((qs.length-missing.length)/qs.length*100):0}}
 function forForm(form,fn){const prev=ACTIVE_FORM;ACTIVE_FORM=form;try{return fn()}finally{ACTIVE_FORM=prev}}
 function activeStage(){const cs=choices();if(!ACTIVE_FORM)return 0;return cs.indexOf(ACTIVE_FORM)+1}
@@ -407,7 +407,7 @@ function bindFields(){
 }
 function isValidField(q){
  const value=get(q.id);
- if(q.required&&(!answered(q)||['unknown','undecided'].includes(value)))return false;
+ if(q.required&&(!answered(q)||(['unknown','undecided'].includes(value)&&!['paid','mission_paid'].includes(q.id))))return false;
  if(q.type==='input'&&q.number&&value!==undefined&&value!==null&&String(value).trim()!==''){
    const v=Number(value);if(!Number.isFinite(v)||v<0)return false;
    if(q.min!==undefined&&v<q.min)return false;
@@ -448,6 +448,7 @@ function fieldMessage(q){
  if(q.number){const v=Number(get(q.id));if(!Number.isFinite(v))return 'Введите число.';if(q.min!==undefined&&v<q.min)return `Минимальное значение: ${q.min.toLocaleString('ru-RU')}.`;if(q.max!==undefined&&v>q.max)return `Максимальное значение: ${q.max.toLocaleString('ru-RU')}.`;if(q.step===1&&!Number.isInteger(v))return 'Укажите целое число.';}
  if(q.id==='full_name')return 'Укажите полное наименование с требуемой законом организационно-правовой формой (например, «Общество с ограниченной ответственностью …»).';
  if(q.id==='npo_income')return 'Для АНО, фонда и общественного движения членские взносы невозможны; для отдельных кооперативов применяйте специальный закон.';
+ if(q.id==='npo_asset_min')return 'Нужно определить наличие и рыночную стоимость имущества для планируемой приносящей доход деятельности НКО.';
  if(q.type==='multi'&&Array.isArray(get(q.id))&&q.options?.some(o=>o.exclusive&&get(q.id).includes(o.value)&&get(q.id).length>1))return 'Нельзя выбирать «Нет» или «Ничего из перечисленного» одновременно с другими вариантами.';
  if(q.id==='llc_capital_payment')return 'При капитале 10 000 ₽ он полностью оплачивается деньгами. Для имущественного вклада увеличьте капитал.';
  if(q.id==='llc_certify_method')return 'Для единственного участника необходимо предусмотреть подтверждение его собственного решения, а не подписание протокола частью участников.';
@@ -545,6 +546,8 @@ function evaluate(){
  const blocking=[],cautions=[],tips=[];const add=(arr,s)=>{if(!arr.includes(s))arr.push(s)};
  const npo=['association','ano','fund','public_org','public_mov'];
  const incomeNpo=[...npo,'coop'];
+ if(get('paid')==='unknown')add(cautions,'Пока не определено, будет ли проект продавать товары или услуги. При окончательном выборе источников финансирования пересмотрите применимость ОПФ и требования закона.');
+ if(incomeNpo.includes(form)&&get('mission_paid')==='unknown'&&['main','additional'].includes(get('paid')))add(cautions,'Не подтверждено, что приносящая доход деятельность соответствует некоммерческим целям. Перед утверждением устава нужно уточнить виды деятельности и их связь с целями.');
  if(!form)add(blocking,'Выберите организационно-правовую форму.');
  if(form==='ip')add(tips,'Индивидуальному предпринимателю устав не требуется.');
  if(form==='ip'&&['amend','transform'].includes(get('stage')))add(blocking,'ИП не имеет устава и не преобразуется в юридическое лицо как при реорганизации; нужно уточнить задачу регистрации.');
